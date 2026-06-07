@@ -37,6 +37,8 @@ jobs:
             libssl-dev \
             patchelf
 
+      - uses: Swatinem/rust-cache@v2
+
       - uses: pnpm/action-setup@v4
         with:
           version: 11
@@ -78,37 +80,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install the latest nightly toolchain
-        uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@nightly
         with:
-          toolchain: nightly
-          profile: minimal
           components: rustfmt
-          override: true
       - name: Rustfmt
         run: cargo fmt --all --check
-      - name: Install taplo
-        run: cargo install taplo-cli --locked --version 0.9.3
+      - uses: uncenter/setup-taplo@v1
+        if: always()
+        with:
+          version: "0.9.3"
       - name: Run taplo fmt
+        if: always()
         run: taplo fmt --check
       - name: Run taplo lint
+        if: always()
         run: taplo lint
 
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    # macOS ships WebKit out of the box, so we skip the apt-install step
+    # that Linux would need for the tauri crate's link line.
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Linux build deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libgtk-3-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            libssl-dev \
-            patchelf
+      - uses: Swatinem/rust-cache@v2
       - name: cargo clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
 
