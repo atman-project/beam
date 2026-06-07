@@ -1,4 +1,6 @@
 import { useEffect, useRef } from "react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   onResult: (value: string) => void;
@@ -39,17 +41,14 @@ export function QrScannerModal({ onResult, onClose }: Props) {
   }, [onResult]);
 
   return (
-    <div className="scanner-modal" onClick={onClose}>
-      <div className="panel" onClick={(e) => e.stopPropagation()}>
-        <div ref={containerRef} id="qr-reader" />
-        <button
-          className="secondary"
-          style={{ width: "100%", marginTop: 12 }}
-          onClick={onClose}
-        >
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="flex flex-col gap-3 sm:max-w-sm">
+        <DialogTitle>Scan QR</DialogTitle>
+        <div ref={containerRef} id="qr-reader" className="w-full" />
+        <Button variant="secondary" onClick={onClose} className="w-full">
           Cancel
-        </button>
-      </div>
-    </div>
+        </Button>
+      </DialogContent>
+    </Dialog>
   );
 }

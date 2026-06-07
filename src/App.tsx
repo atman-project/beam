@@ -1,8 +1,20 @@
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import {
+  Check,
+  Copy,
+  FolderOpen,
+  Loader2,
+  ScanLine,
+  Upload,
+} from "lucide-react";
 import { initTransport } from "./lib/transport-desktop";
 import type { Transport } from "./lib/transport";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { QrScannerModal } from "./components/QrScannerModal";
 
 type Tab = "send" | "receive";
@@ -26,28 +38,30 @@ export function App() {
   }, []);
 
   return (
-    <>
-      <div className="tabs">
-        <button
-          className={tab === "send" ? "active" : ""}
-          onClick={() => setTab("send")}
-        >
-          Send
-        </button>
-        <button
-          className={tab === "receive" ? "active" : ""}
-          onClick={() => setTab("receive")}
-        >
-          Receive
-        </button>
-      </div>
-
-      {tab === "send" ? (
-        <SendScreen transport={transport} />
-      ) : (
-        <ReceiveScreen transport={transport} />
-      )}
-    </>
+    <div
+      className="mx-auto flex w-full max-w-[480px] flex-col gap-5 px-5"
+      style={{
+        paddingTop: "calc(20px + env(safe-area-inset-top))",
+        paddingBottom: "calc(20px + env(safe-area-inset-bottom))",
+      }}
+    >
+      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
+        <TabsList className="w-full">
+          <TabsTrigger value="send" className="flex-1">
+            Send
+          </TabsTrigger>
+          <TabsTrigger value="receive" className="flex-1">
+            Receive
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="send" className="mt-4">
+          <SendScreen transport={transport} />
+        </TabsContent>
+        <TabsContent value="receive" className="mt-4">
+          <ReceiveScreen transport={transport} />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }
 
@@ -106,56 +120,63 @@ function SendScreen({ transport }: { transport: Transport | null }) {
   }, [transport, ticket]);
 
   return (
-    <div className="card">
-      {!ticket ? (
-        <>
-          <div className="muted">
-            Pick one or more files to share. We'll show a QR your friend can
-            scan.
-          </div>
-          <button
-            className="primary"
-            disabled={!transport || working}
-            onClick={pickAndShare}
-          >
-            {working ? "Preparing…" : "Pick files"}
-          </button>
-          {pickedPaths.length > 0 && working && (
-            <div className="muted">
-              Hashing{" "}
-              {pickedPaths.length === 1
-                ? basename(pickedPaths[0])
-                : `${pickedPaths.length} files`}
-              …
+    <Card>
+      <CardContent className="flex flex-col gap-4 p-5">
+        {!ticket ? (
+          <>
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              Pick one or more files to share. We'll show a QR code your friend
+              can scan.
+            </p>
+            <Button
+              className="h-11 w-full"
+              disabled={!transport || working}
+              onClick={pickAndShare}
+            >
+              {working ? <Loader2 className="animate-spin" /> : <Upload />}
+              {working ? "Preparing…" : "Pick files"}
+            </Button>
+            {pickedPaths.length > 0 && working && (
+              <p className="text-muted-foreground text-center text-sm">
+                Hashing{" "}
+                {pickedPaths.length === 1
+                  ? basename(pickedPaths[0])
+                  : `${pickedPaths.length} files`}
+                …
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="self-center rounded-xl bg-white p-4 shadow-lg ring-1 ring-white/10">
+              <QRCodeSVG value={ticket} size={220} level="M" />
             </div>
-          )}
-        </>
-      ) : (
-        <>
-          <div className="qr-frame">
-            <QRCodeSVG value={ticket} size={220} level="M" />
-          </div>
-          {pickedPaths.length > 0 && (
-            <div className="muted" style={{ textAlign: "center" }}>
-              {pickedPaths.length === 1
-                ? basename(pickedPaths[0])
-                : `${pickedPaths.length} files`}
-            </div>
-          )}
-          <div className="muted" style={{ textAlign: "center" }}>
-            Received by {received} {received >= 2 ? "friends" : "friend"}
-          </div>
-          <CopyableMono value={ticket} />
-          <button className="secondary" onClick={reset}>
-            Pick another file
-          </button>
-          <div className="muted" style={{ textAlign: "center" }}>
-            Keep this window open until your friend has finished receiving.
-          </div>
-        </>
-      )}
-      {error && <div className="muted">Error: {error}</div>}
-    </div>
+            {pickedPaths.length > 0 && (
+              <p className="text-foreground text-center text-sm font-medium">
+                {pickedPaths.length === 1
+                  ? basename(pickedPaths[0])
+                  : `${pickedPaths.length} files`}
+              </p>
+            )}
+            <p className="text-muted-foreground text-center text-sm">
+              Received by{" "}
+              <span className="text-foreground font-semibold tabular-nums">
+                {received}
+              </span>{" "}
+              {received >= 2 ? "friends" : "friend"}
+            </p>
+            <CopyableMono value={ticket} />
+            <Button variant="secondary" className="w-full" onClick={reset}>
+              Pick another file
+            </Button>
+            <p className="text-muted-foreground text-center text-xs leading-relaxed">
+              Keep this window open until your friend has finished receiving.
+            </p>
+          </>
+        )}
+        {error && <ErrorBox message={error} />}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -182,59 +203,66 @@ function ReceiveScreen({ transport }: { transport: Transport | null }) {
   }
 
   return (
-    <div className="card">
-      <button
-        className="primary"
-        disabled={!transport || working || !transport?.isMobile()}
-        onClick={() => setScanning(true)}
-        title={
-          transport && !transport.isMobile()
-            ? "QR scanning is only available on mobile"
-            : undefined
-        }
-      >
-        {working ? "Receiving…" : "Scan QR"}
-      </button>
+    <Card>
+      <CardContent className="flex flex-col gap-4 p-5">
+        <Button
+          className="h-11 w-full"
+          disabled={!transport || working || !transport?.isMobile()}
+          onClick={() => setScanning(true)}
+          title={
+            transport && !transport.isMobile()
+              ? "QR scanning is only available on mobile"
+              : undefined
+          }
+        >
+          {working ? <Loader2 className="animate-spin" /> : <ScanLine />}
+          {working ? "Receiving…" : "Scan QR"}
+        </Button>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <div className="muted">Or paste a ticket:</div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            type="text"
+        <div className="text-muted-foreground/60 flex items-center gap-3 text-[10px] font-semibold tracking-widest uppercase">
+          <div className="bg-border h-px flex-1" />
+          Or paste a ticket
+          <div className="bg-border h-px flex-1" />
+        </div>
+
+        <div className="flex gap-2">
+          <Input
             value={manualTicket}
             onChange={(e) => setManualTicket(e.target.value)}
             placeholder="atman-blob1…"
+            className="font-mono text-xs"
           />
-          <button
-            className="secondary"
+          <Button
+            variant="secondary"
             disabled={!transport || working || !manualTicket.trim()}
             onClick={() => receive(manualTicket)}
           >
             Receive
-          </button>
+          </Button>
         </div>
-      </div>
 
-      {savedPaths.length > 0 && (
-        <div>
-          <div className="muted" style={{ marginBottom: 6 }}>
-            {savedPaths.length === 1
-              ? "Saved to"
-              : `Received ${savedPaths.length} files:`}
+        {savedPaths.length > 0 && (
+          <div className="flex flex-col gap-3">
+            <p className="text-muted-foreground text-sm">
+              {savedPaths.length === 1
+                ? "Saved to"
+                : `Received ${savedPaths.length} files:`}
+            </p>
+            {savedPaths.map((p) => (
+              <CopyableMono key={p} value={p} />
+            ))}
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={() => revealItemInDir(savedPaths[0])}
+            >
+              <FolderOpen /> Open folder
+            </Button>
           </div>
-          {savedPaths.map((p) => (
-            <CopyableMono key={p} value={p} />
-          ))}
-          <button
-            className="secondary"
-            style={{ marginTop: 8 }}
-            onClick={() => revealItemInDir(savedPaths[0])}
-          >
-            Open folder
-          </button>
-        </div>
-      )}
-      {error && <div className="muted">Error: {error}</div>}
+        )}
+
+        {error && <ErrorBox message={error} />}
+      </CardContent>
 
       {scanning && (
         <QrScannerModal
@@ -245,6 +273,14 @@ function ReceiveScreen({ transport }: { transport: Transport | null }) {
           onClose={() => setScanning(false)}
         />
       )}
+    </Card>
+  );
+}
+
+function ErrorBox({ message }: { message: string }) {
+  return (
+    <div className="text-destructive bg-destructive/10 border-destructive/20 rounded-md border px-3 py-2 text-sm">
+      {message}
     </div>
   );
 }
@@ -268,42 +304,16 @@ function CopyableMono({ value }: { value: string }) {
   }
 
   return (
-    <div className="copyable">
-      <div className="copyable-text">{value}</div>
+    <div className="bg-background border-border hover:border-border/80 group relative rounded-md border px-3 py-2.5 pr-10 transition-colors">
+      <div className="text-muted-foreground font-mono text-xs leading-relaxed break-all">
+        {value}
+      </div>
       <button
-        className="copy-btn"
         onClick={copy}
         aria-label={copied ? "Copied" : "Copy to clipboard"}
-        title={copied ? "Copied" : "Copy to clipboard"}
+        className="text-muted-foreground hover:bg-muted hover:text-foreground absolute top-1.5 right-1.5 inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors"
       >
-        {copied ? (
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-        ) : (
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-          </svg>
-        )}
+        {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
       </button>
     </div>
   );
