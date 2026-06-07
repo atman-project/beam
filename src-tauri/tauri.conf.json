@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Beam",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "identifier": "sh.atman.beam",
   "build": {
     "frontendDist": "../dist",
@@ -14,7 +14,7 @@
       {
         "title": "Beam",
         "width": 480,
-        "height": 750,
+        "height": 780,
         "resizable": true,
         "fullscreen": false
       }
