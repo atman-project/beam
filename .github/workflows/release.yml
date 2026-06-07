@@ -80,7 +80,8 @@ jobs:
           # into a temp keychain before signing.
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # Let tauri-action read the signing identity from APPLE_CERTIFICATE
+          # to avoid secret drift between cert subject and identity value.
           # Notarization via App Store Connect API key.
           # APPLE_API_KEY_PATH is set by the "Stage Apple API key" step.
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
