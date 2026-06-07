@@ -41,10 +41,18 @@ Linux for `.deb` / AppImage).
 ```sh
 pnpm tauri build     # → src-tauri/target/release/bundle/{dmg,macos}/
 ```
-Produces an unsigned `.app` and `.dmg`. For distribution, sign + notarize
-with an Apple Developer ID by setting `APPLE_SIGNING_IDENTITY` with
-your *Developer ID Application* certificate ID — see
-[Tauri's macOS signing guide](https://v2.tauri.app/distribute/sign/macos/).
+Produces an unsigned `.app` and `.dmg`.
+
+For distribution, the app must be signed and notarized. The following environment
+variables must be set before running `pnpm tauri build`. For details, see
+[Tauri's macOS signing guide](https://v2.tauri.app/distribute/sign/macos/):
+- Signing
+  - `APPLE_SIGNING_IDENTITY`: *Developer ID Application* certificate ID
+- Notarization
+  - `APPLE_API_ISSUER`: Issuer ID of App Store Connect API key
+  - `APPLE_API_KEY`: App Store Connect API key ID
+  - `APPLE_API_KEY_PATH`: Path to App Store Connect API private key (in `.p8` format)
+
 
 ### Windows
 
