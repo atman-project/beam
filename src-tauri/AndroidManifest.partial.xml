@@ -1,0 +1,18 @@
+<!--
+  After running `pnpm tauri android init`, merge these <uses-permission> /
+  <uses-feature> entries into
+  src-tauri/gen/android/app/src/main/AndroidManifest.xml.
+
+  - INTERNET / ACCESS_NETWORK_STATE: iroh needs outbound UDP.
+  - CAMERA + uses-feature: html5-qrcode scanning.
+  - READ_MEDIA_IMAGES (API 33+) / WRITE_EXTERNAL_STORAGE (API ≤28):
+    saving to the shared Pictures/Downloads collections.
+-->
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+<uses-permission android:name="android.permission.CAMERA" />
+<uses-permission
+    android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+    android:maxSdkVersion="28" />
+<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+<uses-feature android:name="android.hardware.camera" android:required="false" />

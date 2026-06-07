@@ -1,1 +1,8 @@
 /target
+node_modules
+/dist
+src/wasm/*.js
+src/wasm/*.ts
+src/wasm/*.wasm
+.DS_Store
+.vercel
