@@ -1,7 +1,5 @@
 export interface Transport {
   endpointId(): string;
-  /** Gates the camera-based QR scanner. */
-  isMobile(): boolean;
   /** Multi-select file picker; `null` on cancel. */
   pickFiles(): Promise<string[] | null>;
   /** Returns a shareable ticket. */

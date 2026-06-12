@@ -1,21 +1,13 @@
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import {
-  Check,
-  Copy,
-  FolderOpen,
-  Loader2,
-  ScanLine,
-  Upload,
-} from "lucide-react";
+import { Check, Copy, FolderOpen, Loader2, Upload } from "lucide-react";
 import { initTransport } from "./lib/transport-desktop";
 import type { Transport } from "./lib/transport";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { QrScannerModal } from "./components/QrScannerModal";
 
 type Tab = "send" | "receive";
 
@@ -181,7 +173,6 @@ function SendScreen({ transport }: { transport: Transport | null }) {
 }
 
 function ReceiveScreen({ transport }: { transport: Transport | null }) {
-  const [scanning, setScanning] = useState(false);
   const [manualTicket, setManualTicket] = useState("");
   const [working, setWorking] = useState(false);
   const [savedPaths, setSavedPaths] = useState<string[]>([]);
@@ -205,23 +196,9 @@ function ReceiveScreen({ transport }: { transport: Transport | null }) {
   return (
     <Card>
       <CardContent className="flex flex-col gap-4 p-5">
-        <Button
-          className="h-11 w-full"
-          disabled={!transport || working || !transport?.isMobile()}
-          onClick={() => setScanning(true)}
-          title={
-            transport && !transport.isMobile()
-              ? "QR scanning is only available on mobile"
-              : undefined
-          }
-        >
-          {working ? <Loader2 className="animate-spin" /> : <ScanLine />}
-          {working ? "Receiving…" : "Scan QR"}
-        </Button>
-
         <div className="text-muted-foreground/60 flex items-center gap-3 text-[10px] font-semibold tracking-widest uppercase">
           <div className="bg-border h-px flex-1" />
-          Or paste a ticket
+          Paste a ticket
           <div className="bg-border h-px flex-1" />
         </div>
 
@@ -263,16 +240,6 @@ function ReceiveScreen({ transport }: { transport: Transport | null }) {
 
         {error && <ErrorBox message={error} />}
       </CardContent>
-
-      {scanning && (
-        <QrScannerModal
-          onResult={(value) => {
-            setScanning(false);
-            receive(value);
-          }}
-          onClose={() => setScanning(false)}
-        />
-      )}
     </Card>
   );
 }

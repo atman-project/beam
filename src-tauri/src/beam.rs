@@ -52,13 +52,6 @@ fn random_hex_32() -> String {
     s
 }
 
-/// Gates the camera-based QR scanner: only meaningful on a phone, since
-/// scanning the QR from your own desktop screen is awkward.
-#[tauri::command]
-pub fn is_mobile() -> bool {
-    cfg!(any(target_os = "ios", target_os = "android"))
-}
-
 /// How many receivers have pulled `ticket` so far. Identical content
 /// shared more than once shares its counter because the hash is the
 /// same on every share.

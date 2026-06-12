@@ -6,3 +6,4 @@ src/wasm/*.ts
 src/wasm/*.wasm
 .DS_Store
 .vercel
+tsconfig.tsbuildinfo
