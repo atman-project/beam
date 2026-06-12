@@ -3,14 +3,10 @@ import { open } from "@tauri-apps/plugin-dialog";
 import type { Transport } from "./transport";
 
 export async function initTransport(): Promise<Transport> {
-  const [id, mobile] = await Promise.all([
-    invoke<string>("endpoint_id"),
-    invoke<boolean>("is_mobile"),
-  ]);
+  const id = await invoke<string>("endpoint_id");
 
   return {
     endpointId: () => id,
-    isMobile: () => mobile,
     pickFiles: async () => {
       const picked = await open({ multiple: true });
       if (!picked) return null;
