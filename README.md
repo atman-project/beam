@@ -6,13 +6,13 @@ Beam is built on top of [atman](https://github.com/atman-project/atman),
 which is a Rust library that implements core protocols for peer-to-peer
 networking and file transfer.
 
-Beam is an open-source software available on iOS, Android, macOS, Windows, and Linux. The iOS version is implemented in [beam-ios](https://github.com/atman-project/beam-ios) as a native Swift app, while all other platforms are implemented in this repo using [Tauri](https://v2.tauri.app/).
+Beam is an open-source software available on iOS, Android, macOS, Windows, and Linux. The iOS version is implemented in [beam-ios](https://github.com/atman-project/beam-ios) as a native Swift app, and the Android version is implemented in [beam-android](https://github.com/atman-project/beam-android). All desktop versions are implemented in this repo using [Tauri](https://v2.tauri.app/).
 
 ## Repo layout
 
 ```
 beam/
-├── src-tauri/                  Tauri Rust shell (desktop + Android)
+├── src-tauri/                  Tauri Rust shell
 ├── src/                        React frontend used by Tauri
 ├── public/, package.json, …    Vite / pnpm scaffolding
 └── Cargo.toml                  workspace, one member: src-tauri
@@ -27,7 +27,6 @@ sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libappindicator3-dev \
 
 pnpm install
 pnpm tauri dev                  # desktop
-pnpm android:dev                # Android (needs Android SDK + NDK)
 ```
 
 ## Release
@@ -35,6 +34,9 @@ pnpm android:dev                # Android (needs Android SDK + NDK)
 Tauri can only build for the host OS, so each desktop installer must be
 produced on a matching machine (macOS for `.dmg`, Windows for `.msi`,
 Linux for `.deb` / AppImage).
+
+All of the following distribution processes are automated as an [workflow](.github/workflows/release.yml),
+which is triggered automatically when a new tag is pushed.
 
 ### macOS
 
@@ -71,19 +73,3 @@ sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libappindicator3-dev \
                  librsvg2-dev libssl-dev patchelf
 pnpm tauri build      # → src-tauri/target/release/bundle/{deb,appimage,rpm}/
 ```
-
-### Android
-
-Requires Android SDK 24+ and NDK; `ANDROID_HOME` and `NDK_HOME` must be set.
-```sh
-pnpm android:init     # one-time per checkout
-pnpm android:build    # → src-tauri/gen/android/app/build/outputs/
-```
-Outputs unsigned APK and AAB. Sign the AAB with a release keystore before
-uploading to Play Console — see [Tauri's Android signing guide](https://v2.tauri.app/distribute/google-play/).
-
-### iOS
-
-iOS is **not** built from this repo. See
-[beam-ios](https://github.com/atman-project/beam-ios) for the native
-Swift app and its build instructions.
