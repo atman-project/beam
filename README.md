@@ -26,14 +26,13 @@ sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libappindicator3-dev \
                  librsvg2-dev libssl-dev patchelf
 
 pnpm install
-pnpm tauri dev                  # desktop
+pnpm tauri dev
 ```
 
 ## Release
 
 Tauri can only build for the host OS, so each desktop installer must be
-produced on a matching machine (macOS for `.dmg`, Windows for `.msi`,
-Linux for `.deb` / AppImage).
+produced on a matching machine.
 
 All of the following distribution processes are automated as an [workflow](.github/workflows/release.yml),
 which is triggered automatically when a new tag is pushed.
