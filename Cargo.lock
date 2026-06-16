@@ -399,7 +399,7 @@ dependencies = [
 [[package]]
 name = "atman"
 version = "0.1.0"
-source = "git+https://github.com/atman-project/atman.git?rev=a704a69#a704a6938098272ddc87bcd00e41f0e8252f5ad0"
+source = "git+https://github.com/atman-project/atman.git?tag=v0.0.2#a704a6938098272ddc87bcd00e41f0e8252f5ad0"
 dependencies = [
  "actman",
  "async-trait",
