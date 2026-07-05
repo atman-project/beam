@@ -8,7 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type Tab = "send" | "receive";
 
@@ -225,17 +230,6 @@ function ReceiveScreen({ transport }: { transport: Transport | null }) {
           </Button>
         </div>
 
-        {working && (
-          <div className="flex flex-col gap-2">
-            <Progress className="h-1.5" />
-            <p className="text-muted-foreground text-sm tabular-nums">
-              Receiving {formatBytes(bytesReceived)}
-              {formatRate(bytesReceived, startTimeRef.current) &&
-                ` (${formatRate(bytesReceived, startTimeRef.current)})`}
-            </p>
-          </div>
-        )}
-
         {savedPaths.length > 0 && (
           <div className="flex flex-col gap-3">
             <p className="text-muted-foreground text-sm">
@@ -258,7 +252,52 @@ function ReceiveScreen({ transport }: { transport: Transport | null }) {
 
         {error && <ErrorBox message={error} />}
       </CardContent>
+      <TransferDialog
+        open={working}
+        bytes={bytesReceived}
+        startTimeMs={startTimeRef.current}
+        onCancel={() => transport?.cancelDownload()}
+      />
     </Card>
+  );
+}
+
+function TransferDialog({
+  open,
+  bytes,
+  startTimeMs,
+  onCancel,
+}: {
+  open: boolean;
+  bytes: number;
+  startTimeMs: number;
+  onCancel: () => void;
+}) {
+  const rate = formatRate(bytes, startTimeMs);
+  return (
+    <Dialog open={open}>
+      <DialogContent
+        className="sm:max-w-sm [&>button]:hidden"
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
+        <DialogHeader className="items-center">
+          <DialogTitle className="sr-only">Receiving</DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col items-center gap-4 py-2">
+          <Loader2 className="text-muted-foreground h-10 w-10 animate-spin" />
+          <div className="text-center">
+            <p className="font-medium">Receiving</p>
+            <p className="text-muted-foreground text-sm tabular-nums">
+              {formatBytes(bytes)}
+              {rate && ` · ${rate}`}
+            </p>
+          </div>
+          <Button variant="secondary" className="w-full" onClick={onCancel}>
+            Cancel
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

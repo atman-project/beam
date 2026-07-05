@@ -14,6 +14,8 @@ export interface Transport {
     ticket: string,
     onProgress?: (bytesReceived: number) => void,
   ): Promise<string[]>;
+  /** Cancel the in-flight `downloadFiles`. No-op if nothing is running. */
+  cancelDownload(): Promise<void>;
   /** Receiver count for `ticket`. Identical content shared twice shares
    *  its counter — the hash is the same. */
   transferCount(ticket: string): Promise<number>;

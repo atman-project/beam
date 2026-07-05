@@ -32,5 +32,6 @@ export async function initTransport(): Promise<Transport> {
       }
     },
     transferCount: (ticket) => invoke<number>("transfer_count", { ticket }),
+    cancelDownload: () => invoke<void>("cancel_download"),
   };
 }

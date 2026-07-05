@@ -8,10 +8,12 @@ use atman::{
     config::secret_key_from_hex,
 };
 use tauri::{AppHandle, Emitter, Manager, State};
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{Notify, mpsc, oneshot};
 
 pub struct AtmanState {
     command_sender: mpsc::Sender<Command>,
+    /// Wakes `download_files` when the frontend fires `cancel_download`.
+    cancel: Notify,
 }
 
 pub async fn init(app: &AppHandle) -> anyhow::Result<()> {
@@ -36,7 +38,10 @@ pub async fn init(app: &AppHandle) -> anyhow::Result<()> {
     // Register state before atman finishes coming online so Tauri
     // commands fired during startup queue on the mpsc channel instead
     // of failing with "state not found".
-    app.manage(AtmanState { command_sender });
+    app.manage(AtmanState {
+        command_sender,
+        cancel: Notify::new(),
+    });
 
     let (ready_sender, ready_receiver) = oneshot::channel();
     tokio::spawn(async move { atman.run(ready_sender).await });
@@ -171,10 +176,17 @@ pub async fn download_files(
         ))
         .await
         .map_err(|e| e.to_string())?;
-    let staged_paths = reply_receiver
-        .await
-        .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())?;
+    let staged_paths = tokio::select! {
+        reply = reply_receiver => reply
+            .map_err(|e| e.to_string())?
+            .map_err(|e| e.to_string())?,
+        _ = state.cancel.notified() => {
+            // Dropping `reply_receiver` here signals atman's actor via
+            // `reply_sender.closed()` — the download future is dropped
+            // and iroh-blobs' fetch stream is cancelled cleanly.
+            return Err("cancelled".to_string());
+        }
+    };
     let _ = progress_forwarder.await;
 
     let mut final_paths = Vec::with_capacity(staged_paths.len());
@@ -210,4 +222,10 @@ fn parse_path(input: &str) -> PathBuf {
         return p;
     }
     PathBuf::from(input)
+}
+
+/// Cancel the in-flight `download_files`. No-op if nothing is running.
+#[tauri::command]
+pub fn cancel_download(state: State<'_, AtmanState>) {
+    state.cancel.notify_one();
 }
