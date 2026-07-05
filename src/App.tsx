@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Check, Copy, FolderOpen, Loader2, Upload } from "lucide-react";
@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 
 type Tab = "send" | "receive";
 
@@ -177,14 +178,20 @@ function ReceiveScreen({ transport }: { transport: Transport | null }) {
   const [working, setWorking] = useState(false);
   const [savedPaths, setSavedPaths] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [bytesReceived, setBytesReceived] = useState(0);
+  const startTimeRef = useRef(0);
 
   async function receive(ticket: string) {
     if (!transport || !ticket.trim()) return;
     setError(null);
     setSavedPaths([]);
+    setBytesReceived(0);
+    startTimeRef.current = performance.now();
     setWorking(true);
     try {
-      const paths = await transport.downloadFiles(ticket.trim());
+      const paths = await transport.downloadFiles(ticket.trim(), (bytes) =>
+        setBytesReceived(bytes),
+      );
       setSavedPaths(paths);
     } catch (e) {
       setError(String((e as Error).message ?? e));
@@ -217,6 +224,17 @@ function ReceiveScreen({ transport }: { transport: Transport | null }) {
             Receive
           </Button>
         </div>
+
+        {working && (
+          <div className="flex flex-col gap-2">
+            <Progress className="h-1.5" />
+            <p className="text-muted-foreground text-sm tabular-nums">
+              Receiving {formatBytes(bytesReceived)}
+              {formatRate(bytesReceived, startTimeRef.current) &&
+                ` (${formatRate(bytesReceived, startTimeRef.current)})`}
+            </p>
+          </div>
+        )}
 
         {savedPaths.length > 0 && (
           <div className="flex flex-col gap-3">
@@ -255,6 +273,29 @@ function ErrorBox({ message }: { message: string }) {
 function basename(p: string): string {
   const i = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"));
   return i === -1 ? p : p.slice(i + 1);
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let n = bytes / 1024;
+  let i = 0;
+  while (n >= 1024 && i < units.length - 1) {
+    n /= 1024;
+    i++;
+  }
+  return `${n.toFixed(n >= 10 ? 0 : 1)} ${units[i]}`;
+}
+
+/**
+ * Rolling average rate since transfer start. Returns `null` for the
+ * first ~500ms so we don't show a wild first-sample estimate.
+ */
+function formatRate(bytes: number, startTimeMs: number): string | null {
+  if (bytes === 0 || startTimeMs === 0) return null;
+  const elapsedMs = performance.now() - startTimeMs;
+  if (elapsedMs < 500) return null;
+  return `${formatBytes((bytes * 1000) / elapsedMs)}/s`;
 }
 
 function CopyableMono({ value }: { value: string }) {

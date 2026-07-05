@@ -1,7 +1,13 @@
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    time::{Duration, Instant},
+};
 
-use atman::{Atman, BlobTicket, Command, Config, NetworkConfig, config::secret_key_from_hex};
-use tauri::{AppHandle, Manager, State};
+use atman::{
+    Atman, BlobTicket, Command, Config, NetworkConfig, command::blobs::DownloadProgress,
+    config::secret_key_from_hex,
+};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::{mpsc, oneshot};
 
 pub struct AtmanState {
@@ -136,8 +142,23 @@ pub async fn download_files(
         .map_err(|e| e.to_string())?;
 
     let (reply_sender, reply_receiver) = oneshot::channel();
-    // TODO: bubble progress up to the Tauri frontend via events.
-    let (progress_sender, _progress_receiver) = mpsc::channel(64);
+    let (progress_sender, mut progress_receiver) = mpsc::channel(64);
+    let progress_forwarder = tokio::spawn({
+        let app = app.clone();
+        async move {
+            let mut last_emit: Option<Instant> = None;
+            while let Some(progress) = progress_receiver.recv().await {
+                let DownloadProgress::Bytes { downloaded } = progress else {
+                    continue;
+                };
+                let now = Instant::now();
+                if last_emit.is_none_or(|t| now.duration_since(t) >= PROGRESS_MIN_INTERVAL) {
+                    last_emit = Some(now);
+                    let _ = app.emit(DOWNLOAD_PROGRESS_EVENT, downloaded);
+                }
+            }
+        }
+    });
     state
         .command_sender
         .send(Command::Blobs(
@@ -154,6 +175,7 @@ pub async fn download_files(
         .await
         .map_err(|e| e.to_string())?
         .map_err(|e| e.to_string())?;
+    let _ = progress_forwarder.await;
 
     let mut final_paths = Vec::with_capacity(staged_paths.len());
     for staged in staged_paths {
@@ -173,6 +195,9 @@ pub async fn download_files(
 
     Ok(final_paths)
 }
+
+const DOWNLOAD_PROGRESS_EVENT: &str = "beam://download-progress";
+const PROGRESS_MIN_INTERVAL: Duration = Duration::from_millis(100);
 
 /// Tauri's iOS file-picker hands back `file://` URLs (often
 /// percent-encoded); desktop pickers return native paths. Decode the URL
