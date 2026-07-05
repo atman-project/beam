@@ -11,6 +11,7 @@ pub fn run() {
             beam::endpoint_id,
             beam::send_files,
             beam::download_files,
+            beam::cancel_download,
             beam::transfer_count,
         ])
         .setup(|app| {

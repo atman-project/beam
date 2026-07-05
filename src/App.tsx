@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Check, Copy, FolderOpen, Loader2, Upload } from "lucide-react";
@@ -8,6 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type Tab = "send" | "receive";
 
@@ -177,14 +183,20 @@ function ReceiveScreen({ transport }: { transport: Transport | null }) {
   const [working, setWorking] = useState(false);
   const [savedPaths, setSavedPaths] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [bytesReceived, setBytesReceived] = useState(0);
+  const startTimeRef = useRef(0);
 
   async function receive(ticket: string) {
     if (!transport || !ticket.trim()) return;
     setError(null);
     setSavedPaths([]);
+    setBytesReceived(0);
+    startTimeRef.current = performance.now();
     setWorking(true);
     try {
-      const paths = await transport.downloadFiles(ticket.trim());
+      const paths = await transport.downloadFiles(ticket.trim(), (bytes) =>
+        setBytesReceived(bytes),
+      );
       setSavedPaths(paths);
     } catch (e) {
       setError(String((e as Error).message ?? e));
@@ -240,7 +252,52 @@ function ReceiveScreen({ transport }: { transport: Transport | null }) {
 
         {error && <ErrorBox message={error} />}
       </CardContent>
+      <TransferDialog
+        open={working}
+        bytes={bytesReceived}
+        startTimeMs={startTimeRef.current}
+        onCancel={() => transport?.cancelDownload()}
+      />
     </Card>
+  );
+}
+
+function TransferDialog({
+  open,
+  bytes,
+  startTimeMs,
+  onCancel,
+}: {
+  open: boolean;
+  bytes: number;
+  startTimeMs: number;
+  onCancel: () => void;
+}) {
+  const rate = formatRate(bytes, startTimeMs);
+  return (
+    <Dialog open={open}>
+      <DialogContent
+        className="sm:max-w-sm [&>button]:hidden"
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
+        <DialogHeader className="items-center">
+          <DialogTitle className="sr-only">Receiving</DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col items-center gap-4 py-2">
+          <Loader2 className="text-muted-foreground h-10 w-10 animate-spin" />
+          <div className="text-center">
+            <p className="font-medium">Receiving</p>
+            <p className="text-muted-foreground text-sm tabular-nums">
+              {formatBytes(bytes)}
+              {rate && ` (${rate})`}
+            </p>
+          </div>
+          <Button variant="secondary" className="w-full" onClick={onCancel}>
+            Cancel
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -255,6 +312,29 @@ function ErrorBox({ message }: { message: string }) {
 function basename(p: string): string {
   const i = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"));
   return i === -1 ? p : p.slice(i + 1);
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let n = bytes / 1024;
+  let i = 0;
+  while (n >= 1024 && i < units.length - 1) {
+    n /= 1024;
+    i++;
+  }
+  return `${n.toFixed(n >= 10 ? 0 : 1)} ${units[i]}`;
+}
+
+/**
+ * Rolling average rate since transfer start. Returns `null` for the
+ * first ~500ms so we don't show a wild first-sample estimate.
+ */
+function formatRate(bytes: number, startTimeMs: number): string | null {
+  if (bytes === 0 || startTimeMs === 0) return null;
+  const elapsedMs = performance.now() - startTimeMs;
+  if (elapsedMs < 500) return null;
+  return `${formatBytes((bytes * 1000) / elapsedMs)}/s`;
 }
 
 function CopyableMono({ value }: { value: string }) {

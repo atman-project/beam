@@ -1,11 +1,19 @@
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    time::{Duration, Instant},
+};
 
-use atman::{Atman, BlobTicket, Command, Config, NetworkConfig, config::secret_key_from_hex};
-use tauri::{AppHandle, Manager, State};
-use tokio::sync::{mpsc, oneshot};
+use atman::{
+    Atman, BlobTicket, Command, Config, NetworkConfig, command::blobs::DownloadProgress,
+    config::secret_key_from_hex,
+};
+use tauri::{AppHandle, Emitter, Manager, State};
+use tokio::sync::{Notify, mpsc, oneshot};
 
 pub struct AtmanState {
     command_sender: mpsc::Sender<Command>,
+    /// Wakes `download_files` when the frontend fires `cancel_download`.
+    cancel: Notify,
 }
 
 pub async fn init(app: &AppHandle) -> anyhow::Result<()> {
@@ -30,7 +38,10 @@ pub async fn init(app: &AppHandle) -> anyhow::Result<()> {
     // Register state before atman finishes coming online so Tauri
     // commands fired during startup queue on the mpsc channel instead
     // of failing with "state not found".
-    app.manage(AtmanState { command_sender });
+    app.manage(AtmanState {
+        command_sender,
+        cancel: Notify::new(),
+    });
 
     let (ready_sender, ready_receiver) = oneshot::channel();
     tokio::spawn(async move { atman.run(ready_sender).await });
@@ -136,8 +147,23 @@ pub async fn download_files(
         .map_err(|e| e.to_string())?;
 
     let (reply_sender, reply_receiver) = oneshot::channel();
-    // TODO: bubble progress up to the Tauri frontend via events.
-    let (progress_sender, _progress_receiver) = mpsc::channel(64);
+    let (progress_sender, mut progress_receiver) = mpsc::channel(64);
+    let progress_forwarder = tokio::spawn({
+        let app = app.clone();
+        async move {
+            let mut last_emit: Option<Instant> = None;
+            while let Some(progress) = progress_receiver.recv().await {
+                let DownloadProgress::Bytes { downloaded } = progress else {
+                    continue;
+                };
+                let now = Instant::now();
+                if last_emit.is_none_or(|t| now.duration_since(t) >= PROGRESS_MIN_INTERVAL) {
+                    last_emit = Some(now);
+                    let _ = app.emit(DOWNLOAD_PROGRESS_EVENT, downloaded);
+                }
+            }
+        }
+    });
     state
         .command_sender
         .send(Command::Blobs(
@@ -150,10 +176,18 @@ pub async fn download_files(
         ))
         .await
         .map_err(|e| e.to_string())?;
-    let staged_paths = reply_receiver
-        .await
-        .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())?;
+    let staged_paths = tokio::select! {
+        reply = reply_receiver => reply
+            .map_err(|e| e.to_string())?
+            .map_err(|e| e.to_string())?,
+        _ = state.cancel.notified() => {
+            // Dropping `reply_receiver` here signals atman's actor via
+            // `reply_sender.closed()` — the download future is dropped
+            // and iroh-blobs' fetch stream is cancelled cleanly.
+            return Err("cancelled".to_string());
+        }
+    };
+    let _ = progress_forwarder.await;
 
     let mut final_paths = Vec::with_capacity(staged_paths.len());
     for staged in staged_paths {
@@ -174,6 +208,9 @@ pub async fn download_files(
     Ok(final_paths)
 }
 
+const DOWNLOAD_PROGRESS_EVENT: &str = "beam://download-progress";
+const PROGRESS_MIN_INTERVAL: Duration = Duration::from_millis(100);
+
 /// Tauri's iOS file-picker hands back `file://` URLs (often
 /// percent-encoded); desktop pickers return native paths. Decode the URL
 /// form back to a filesystem path; pass anything else through.
@@ -185,4 +222,10 @@ fn parse_path(input: &str) -> PathBuf {
         return p;
     }
     PathBuf::from(input)
+}
+
+/// Cancel the in-flight `download_files`. No-op if nothing is running.
+#[tauri::command]
+pub fn cancel_download(state: State<'_, AtmanState>) {
+    state.cancel.notify_one();
 }
