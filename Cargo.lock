@@ -424,7 +424,7 @@ dependencies = [
 [[package]]
 name = "atman"
 version = "0.1.0"
-source = "git+https://github.com/atman-project/atman.git?branch=main#3b6838a7d7a51ac481a8d45f1ebfd53b84c602d6"
+source = "git+https://github.com/atman-project/atman.git?tag=v0.0.3#3b6838a7d7a51ac481a8d45f1ebfd53b84c602d6"
 dependencies = [
  "actman",
  "async-trait",
