@@ -13,7 +13,7 @@ lto = true
 strip = "symbols"
 
 [workspace.dependencies]
-atman = { git = "https://github.com/atman-project/atman.git", tag = "v0.0.2", default-features = false, features = [
+atman = { git = "https://github.com/atman-project/atman.git", branch = "main", default-features = false, features = [
   "blobs",
 ] }
 anyhow = "1"
