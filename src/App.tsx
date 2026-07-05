@@ -289,7 +289,7 @@ function TransferDialog({
             <p className="font-medium">Receiving</p>
             <p className="text-muted-foreground text-sm tabular-nums">
               {formatBytes(bytes)}
-              {rate && ` · ${rate}`}
+              {rate && ` (${rate})`}
             </p>
           </div>
           <Button variant="secondary" className="w-full" onClick={onCancel}>
