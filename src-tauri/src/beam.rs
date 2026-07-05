@@ -136,6 +136,8 @@ pub async fn download_files(
         .map_err(|e| e.to_string())?;
 
     let (reply_sender, reply_receiver) = oneshot::channel();
+    // TODO: bubble progress up to the Tauri frontend via events.
+    let (progress_sender, _progress_receiver) = mpsc::channel(64);
     state
         .command_sender
         .send(Command::Blobs(
@@ -143,6 +145,7 @@ pub async fn download_files(
                 ticket,
                 save_dir: staging.clone(),
                 reply_sender,
+                progress_sender,
             },
         ))
         .await
